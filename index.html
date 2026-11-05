@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#17141c">
+<title>Count Watch</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #17141c;
+    --card: #221e29;
+    --surface: #2b2633;
+    --tint: #3a2532;
+    --tint-2: #2f2230;
+    --ink: #f2ecf4;
+    --sub: #a59bab;
+    --line: #3b3444;
+    --accent: #ff8fab;
+    --accent-d: #ffa6bd;
+    --mint: #7fd1b9;
+    --sky: #8ec5ff;
+    --sun: #ffd166;
+    --on-accent: #1d1720;
+    --shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  .app { max-width: 560px; margin: 0 auto; padding: 16px 16px 48px; }
+  h1 { font-size: 20px; text-align: center; margin: 8px 0 16px; letter-spacing: .08em; }
+  h1 span { color: var(--accent); }
+
+  /* tabs */
+  .tabs { display: flex; background: var(--card); border-radius: 999px; padding: 4px; box-shadow: var(--shadow); margin-bottom: 20px; }
+  .tab { flex: 1; border: 0; background: transparent; padding: 10px; border-radius: 999px; font: inherit; font-weight: 700; color: var(--sub); cursor: pointer; transition: .2s; }
+  .tab.active { background: var(--accent); color: var(--on-accent); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card { background: var(--card); border-radius: 20px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+
+  /* duration select */
+  .durations { display: flex; gap: 8px; justify-content: center; margin-bottom: 8px; }
+  .dur { flex: 1; max-width: 120px; border: 2px solid var(--line); background: var(--surface); border-radius: 14px; padding: 10px 0; font: inherit; font-weight: 700; color: var(--sub); cursor: pointer; transition: .15s; }
+  .dur.active { border-color: var(--accent); color: var(--accent-d); background: var(--tint); }
+  .dur:disabled { cursor: not-allowed; opacity: .5; }
+  .dur.active:disabled { opacity: 1; }
+
+  /* ring */
+  .ring-wrap { position: relative; width: min(280px, 78vw); aspect-ratio: 1; margin: 16px auto; }
+  .ring-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring-bg { stroke: var(--line); }
+  .ring-fg { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .3s linear; }
+  .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .time { font-size: clamp(36px, 11vw, 52px); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+  .status { font-size: 13px; color: var(--sub); margin-top: 4px; }
+  .lapnow { font-size: 13px; color: var(--accent-d); margin-top: 6px; font-variant-numeric: tabular-nums; min-height: 1.2em; }
+
+  /* controls */
+  .controls { display: flex; gap: 8px; }
+  .btn { flex: 1; border: 0; border-radius: 14px; padding: 14px 0; font: inherit; font-weight: 800; letter-spacing: .06em; color: var(--on-accent); cursor: pointer; transition: transform .1s, opacity .2s; }
+  .btn:active:not(:disabled) { transform: scale(.96); }
+  .btn:disabled { opacity: .3; cursor: not-allowed; }
+  .btn.start { background: var(--mint); }
+  .btn.stop { background: var(--accent); }
+  .btn.restart { background: var(--sky); }
+  .reset { display: block; margin: 12px auto 0; background: none; border: 0; color: var(--sub); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; }
+  .reset:disabled { opacity: .3; cursor: not-allowed; }
+
+  /* laps */
+  .section-title { font-size: 15px; font-weight: 800; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: baseline; }
+  .section-title small { color: var(--sub); font-weight: 400; }
+  .empty { color: var(--sub); font-size: 13px; text-align: center; padding: 12px 0; }
+  .lap { border: 1.5px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
+  .lap-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .lap-no { font-size: 22px; color: var(--accent-d); line-height: 1; }
+  .lap-time { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .lap-range { margin-left: auto; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .lap input, .lap textarea { width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; }
+  .lap input:focus, .lap textarea:focus { border-color: var(--accent); }
+  .lap textarea { margin-top: 6px; resize: vertical; min-height: 56px; }
+  .lap.live { border-style: dashed; opacity: .75; }
+
+  /* calendar */
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-head button { border: 0; background: var(--tint); color: var(--accent-d); width: 36px; height: 36px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+  .cal-title { font-weight: 800; font-size: 17px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .dow { text-align: center; font-size: 12px; color: var(--sub); padding: 4px 0; }
+  .dow.sun { color: #ff8a8a; } .dow.sat { color: #8ab4ff; }
+  .day { aspect-ratio: 1; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 4px; font-size: 13px; cursor: pointer; border: 2px solid transparent; background: var(--surface); position: relative; }
+  .day.other { visibility: hidden; }
+  .day.today { border-color: var(--sun); }
+  .day.sel { background: var(--tint); border-color: var(--accent); }
+  .day.done { background: var(--tint-2); }
+  .flowers { font-size: clamp(14px, 4.5vw, 22px); line-height: 1.1; margin-top: 2px; }
+  .flowers.pop { animation: bloom .6s ease-out; }
+  @keyframes bloom { 0% { transform: scale(0) rotate(-90deg); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+  .cal-summary { text-align: center; color: var(--sub); font-size: 13px; margin-top: 12px; }
+  .cal-summary b { color: var(--accent-d); }
+  .session { border-top: 1.5px dashed var(--line); padding-top: 12px; margin-top: 12px; }
+  .session:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+  .session-head { font-weight: 800; margin-bottom: 8px; }
+  .session-head small { color: var(--sub); font-weight: 400; margin-left: 6px; }
+
+  /* finish overlay */
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+  .finish { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: rgba(23, 20, 28, .8); backdrop-filter: blur(2px); }
+  .finish.show { display: flex; }
+  .finish-box { text-align: center; animation: pop .7s cubic-bezier(.2, 1.6, .4, 1); }
+  .finish-text { font-size: clamp(56px, 18vw, 96px); font-weight: 900; letter-spacing: .04em; background: linear-gradient(90deg, #ff8fab, #ffd166, #7fd1b9, #8ec5ff, #c3a6ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .finish-sub { color: var(--sub); margin: 8px 0 20px; }
+  .finish-box button { border: 0; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 800; padding: 12px 28px; border-radius: 999px; cursor: pointer; }
+  @keyframes pop { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>⏳ COUNT <span>WATCH</span></h1>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="watch" role="tab">ストップウォッチ</button>
+    <button class="tab" data-tab="calendar" role="tab">カレンダー</button>
+  </div>
+
+  <!-- Stopwatch -->
+  <section class="panel active" id="panel-watch">
+    <div class="card">
+      <div class="durations" id="durations">
+        <button class="dur" data-h="1">1時間</button>
+        <button class="dur" data-h="2">2時間</button>
+        <button class="dur" data-h="3">3時間</button>
+      </div>
+
+      <div class="ring-wrap">
+        <svg viewBox="0 0 120 120">
+          <circle class="ring-bg" cx="60" cy="60" r="52" fill="none" stroke-width="9"/>
+          <circle class="ring-fg" id="ring" cx="60" cy="60" r="52" fill="none" stroke-width="9"/>
+        </svg>
+        <div class="ring-center">
+          <div class="time" id="time">1:00:00</div>
+          <div class="status" id="status">時間を選んでスタート</div>
+          <div class="lapnow" id="lapnow"></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn start" id="btn-start">START</button>
+        <button class="btn stop" id="btn-stop">STOP</button>
+        <button class="btn restart" id="btn-restart">RESTART</button>
+      </div>
+      <button class="reset" id="btn-reset">リセット</button>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">ラップ <small id="lap-count"></small></h2>
+      <div id="laps"></div>
+    </div>
+  </section>
+
+  <!-- Calendar -->
+  <section class="panel" id="panel-calendar">
+    <div class="card">
+      <div class="cal-head">
+        <button id="cal-prev" aria-label="前の月">‹</button>
+        <div class="cal-title" id="cal-title"></div>
+        <button id="cal-next" aria-label="次の月">›</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-summary" id="cal-summary"></div>
+    </div>
+    <div class="card" id="day-detail"></div>
+  </section>
+</div>
+
+<div class="finish" id="finish">
+  <div class="finish-box">
+    <div class="finish-text">FINISH!</div>
+    <div class="finish-sub" id="finish-sub">おつかれさまでした 🌸</div>
+    <button id="finish-close">とじる</button>
+  </div>
+</div>
+<canvas id="confetti"></canvas>
+
+<script>
+(() => {
+  const STORE_KEY = 'countwatch.v1';
+  const FLOWERS = ['🌸', '🌷', '🌼', '🌻', '🌺', '💐'];
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- state ----------
+  const defaultState = () => ({
+    session: {
+      id: null,
+      hours: 1,
+      status: 'idle',       // idle | running | paused | finished
+      segStart: null,       // ms timestamp when current running segment began
+      laps: [],             // {sec, title, memo, startRemain, endRemain}
+    },
+    history: [],            // {id, date:'YYYY-MM-DD', hours, finishedAt, laps}
+  });
+
+  let state;
+  try {
+    state = JSON.parse(localStorage.getItem(STORE_KEY)) || defaultState();
+  } catch { state = defaultState(); }
+  const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {} };
+
+  const S = () => state.session;
+  // ?test in the URL makes each "hour" last 10 seconds, for trying out the finish screen
+  const HOUR_MS = location.search.includes('test') ? 10 * 1000 : 3600 * 1000;
+  const totalMs = () => S().hours * HOUR_MS;
+  const lapsMs = () => S().laps.reduce((a, l) => a + l.ms, 0);
+  const segMs = () => (S().status === 'running' ? Date.now() - S().segStart : 0);
+  const remainingMs = () => Math.max(0, totalMs() - lapsMs() - segMs());
+
+  // ---------- helpers ----------
+  const fmt = (ms) => {
+    const t = Math.ceil(ms / 1000);
+    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+  const fmtDur = (ms) => {
+    const t = Math.round(ms / 1000);
+    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    return h ? `${h}時間${m}分${s}秒` : m ? `${m}分${s}秒` : `${s}秒`;
+  };
+  const circled = (n) => (n >= 1 && n <= 20 ? String.fromCharCode(0x245f + n)
+                        : n <= 35 ? String.fromCharCode(0x3251 + n - 21)
+                        : n <= 50 ? String.fromCharCode(0x32b1 + n - 36) : `(${n})`);
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const hm = (ts) => { const d = new Date(ts); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
+
+  // ---------- actions ----------
+  function closeSegment(endTs) {
+    const s = S();
+    const ms = Math.min(endTs - s.segStart, totalMs() - lapsMs());
+    s.laps.push({ ms, title: '', memo: '', from: s.segStart, to: s.segStart + ms });
+    s.segStart = null;
+  }
+
+  function start() {
+    const s = S();
+    if (s.status !== 'idle') return;
+    s.id = 'w' + Date.now();
+    s.status = 'running';
+    s.segStart = Date.now();
+    save(); render(); renderLaps();
+  }
+  function stop() {
+    const s = S();
+    if (s.status !== 'running') return;
+    closeSegment(Date.now());
+    s.status = 'paused';
+    save(); render(); renderLaps();
+  }
+  function restart() {
+    const s = S();
+    if (s.status !== 'paused') return;
+    s.status = 'running';
+    s.segStart = Date.now();
+    save(); render(); renderLaps();
+  }
+  function reset() {
+    const s = S();
+    if (s.status === 'idle') return;
+    if (s.status !== 'finished' && !confirm('カウントをリセットしますか？（ラップも消えます）')) return;
+    state.session = { ...defaultState().session, hours: s.hours };
+    save(); render(); renderLaps();
+  }
+  function selectHours(h) {
+    if (S().status !== 'idle') return;
+    S().hours = h; save(); render();
+  }
+
+  function finish(celebrate = true) {
+    const s = S();
+    const endTs = s.segStart + (totalMs() - lapsMs());
+    closeSegment(endTs);
+    s.status = 'finished';
+    state.history.push({ id: s.id, date: ymd(new Date(endTs)), hours: s.hours, finishedAt: endTs, laps: s.laps });
+    save(); render(); renderLaps(); renderCalendar();
+    if (celebrate) {
+      $('finish-sub').textContent = `${s.hours}時間 完走！ おつかれさまでした 🌸`;
+      $('finish').classList.add('show');
+      confetti();
+    }
+  }
+
+  // ---------- render: stopwatch ----------
+  const ring = $('ring');
+  const C = 2 * Math.PI * 52;
+  ring.style.strokeDasharray = C;
+
+  function render() {
+    const s = S();
+    const rem = remainingMs();
+    $('time').textContent = fmt(rem);
+    ring.style.strokeDashoffset = C * (1 - rem / totalMs());
+
+    document.querySelectorAll('.dur').forEach((b) => {
+      b.classList.toggle('active', +b.dataset.h === s.hours);
+      b.disabled = s.status !== 'idle';
+    });
+    $('btn-start').disabled = s.status !== 'idle';
+    $('btn-stop').disabled = s.status !== 'running';
+    $('btn-restart').disabled = s.status !== 'paused';
+    $('btn-reset').disabled = s.status === 'idle';
+    $('btn-reset').textContent = s.status === 'finished' ? 'もう一度はじめる' : 'リセット';
+
+    $('status').textContent = {
+      idle: '時間を選んでスタート',
+      running: 'カウント中…',
+      paused: '一時停止中',
+      finished: 'FINISH! 🎉',
+    }[s.status];
+    $('lapnow').textContent = s.status === 'running'
+      ? `${circled(s.laps.length + 1)} ${fmt(segMs()).replace(/^0:/, '')}` : '';
+  }
+
+  function lapCard(lap, i, ref) {
+    return `
+      <div class="lap">
+        <div class="lap-head">
+          <span class="lap-no">${circled(i + 1)}</span>
+          <span class="lap-time">${fmtDur(lap.ms)}</span>
+          <span class="lap-range">${hm(lap.from)} – ${hm(lap.to)}</span>
+        </div>
+        <input type="text" placeholder="タイトル" value="${esc(lap.title)}" data-ref="${ref}" data-i="${i}" data-f="title">
+        <textarea placeholder="メモ" data-ref="${ref}" data-i="${i}" data-f="memo">${esc(lap.memo)}</textarea>
+      </div>`;
+  }
+
+  function renderLaps() {
+    const s = S();
+    const el = $('laps');
+    $('lap-count').textContent = s.laps.length ? `${s.laps.length}件` : '';
+    let html = s.laps.map((l, i) => lapCard(l, i, 'session')).join('');
+    if (s.status === 'running') {
+      html += `<div class="lap live"><div class="lap-head"><span class="lap-no">${circled(s.laps.length + 1)}</span>
+               <span class="lap-time">計測中…</span><span class="lap-range">${hm(s.segStart)} –</span></div></div>`;
+    }
+    el.innerHTML = html || '<div class="empty">STOP するとラップが記録されます</div>';
+  }
+
+  // lap edits (stopwatch + calendar detail share the same handler)
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!t.dataset.f) return;
+    const i = +t.dataset.i, f = t.dataset.f, ref = t.dataset.ref;
+    let laps;
+    if (ref === 'session') laps = S().laps;
+    else laps = state.history.find((h) => h.id === ref)?.laps;
+    if (!laps || !laps[i]) return;
+    laps[i][f] = t.value;
+    // keep the finished session and its history entry in sync
+    const sid = S().id;
+    if (S().status === 'finished') {
+      const h = state.history.find((x) => x.id === sid);
+      if (h) { if (ref === 'session') h.laps = S().laps; else if (ref === sid) S().laps = h.laps; }
+    }
+    save();
+  });
+  document.addEventListener('change', (e) => {
+    // refresh the other view once editing is done
+    if (!e.target.dataset.f) return;
+    if (e.target.dataset.ref === 'session') renderDayDetail(); else renderLaps();
+  });
+
+  // ---------- render: calendar ----------
+  const today = new Date();
+  let viewY = today.getFullYear(), viewM = today.getMonth();
+  let selDate = ymd(today);
+  let lastFinishedDate = null;
+
+  function byDate() {
+    const map = {};
+    state.history.forEach((h) => (map[h.date] ||= []).push(h));
+    return map;
+  }
+
+  function renderCalendar() {
+    const map = byDate();
+    $('cal-title').textContent = `${viewY}年 ${viewM + 1}月`;
+    const first = new Date(viewY, viewM, 1);
+    const days = new Date(viewY, viewM + 1, 0).getDate();
+    let html = ['日', '月', '火', '水', '木', '金', '土']
+      .map((d, i) => `<div class="dow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${d}</div>`).join('');
+    for (let i = 0; i < first.getDay(); i++) html += '<div class="day other"></div>';
+    let monthCount = 0, monthMs = 0;
+    for (let d = 1; d <= days; d++) {
+      const key = ymd(new Date(viewY, viewM, d));
+      const list = map[key] || [];
+      monthCount += list.length;
+      list.forEach((h) => (monthMs += h.hours * 3600000));
+      const flowers = list.slice(0, 3).map((h) => FLOWERS[(h.hours - 1 + list.indexOf(h)) % FLOWERS.length]).join('')
+                    + (list.length > 3 ? '+' : '');
+      html += `<div class="day ${key === ymd(today) ? 'today' : ''} ${key === selDate ? 'sel' : ''} ${list.length ? 'done' : ''}" data-date="${key}">
+                 <span>${d}</span>${list.length ? `<span class="flowers ${key === lastFinishedDate ? 'pop' : ''}">${flowers}</span>` : ''}
+               </div>`;
+    }
+    $('cal-grid').innerHTML = html;
+    $('cal-summary').innerHTML = monthCount
+      ? `今月は <b>${monthCount}回</b> 完走（合計 <b>${monthMs / 3600000}時間</b>）🌷`
+      : 'カウントダウンを完走すると、その日にお花が咲きます 🌱';
+    lastFinishedDate = null;
+    renderDayDetail();
+  }
+
+  function renderDayDetail() {
+    const list = byDate()[selDate] || [];
+    const [y, m, d] = selDate.split('-').map(Number);
+    let html = `<h2 class="section-title">${m}月${d}日 <small>${list.length ? `${list.length}回 完走` : ''}</small></h2>`;
+    if (!list.length) html += '<div class="empty">この日の記録はありません</div>';
+    list.forEach((h, n) => {
+      html += `<div class="session"><div class="session-head">${FLOWERS[(h.hours - 1 + n) % FLOWERS.length]} ${h.hours}時間コース
+               <small>${hm(h.finishedAt)} にFINISH・ラップ${h.laps.length}件</small></div>
+               ${h.laps.map((l, i) => lapCard(l, i, h.id)).join('')}</div>`;
+    });
+    $('day-detail').innerHTML = html;
+  }
+
+  $('cal-grid').addEventListener('click', (e) => {
+    const day = e.target.closest('.day[data-date]');
+    if (!day) return;
+    selDate = day.dataset.date;
+    renderCalendar();
+  });
+  $('cal-prev').onclick = () => { if (--viewM < 0) { viewM = 11; viewY--; } renderCalendar(); };
+  $('cal-next').onclick = () => { if (++viewM > 11) { viewM = 0; viewY++; } renderCalendar(); };
+
+  // ---------- tabs ----------
+  document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
+    document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === 'panel-' + t.dataset.tab));
+    if (t.dataset.tab === 'calendar') renderCalendar(); else renderLaps();
+  }));
+
+  // ---------- confetti ----------
+  const cv = $('confetti'), cx = cv.getContext('2d');
+  let parts = [], animating = false;
+  function confetti() {
+    cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio;
+    cx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    const colors = ['#ff8fab', '#ffd166', '#7fd1b9', '#8ec5ff', '#c3a6ff', '#ffb38a'];
+    const burst = (x) => {
+      for (let i = 0; i < 120; i++) {
+        parts.push({
+          x, y: innerHeight + 10,
+          vx: (Math.random() - .5) * 12 + (x < innerWidth / 2 ? 4 : -4),
+          vy: -(Math.random() * 14 + 12),
+          r: Math.random() * 6 + 4, rot: Math.random() * 6, vr: (Math.random() - .5) * .4,
+          c: colors[(Math.random() * colors.length) | 0], shape: Math.random() < .25 ? 'petal' : 'rect',
+        });
+      }
+    };
+    burst(innerWidth * .15); burst(innerWidth * .85);
+    setTimeout(() => burst(innerWidth * .5), 400);
+    // a gentle rain of petals from the top
+    for (let i = 0; i < 80; i++) parts.push({
+      x: Math.random() * innerWidth, y: -Math.random() * innerHeight, vx: (Math.random() - .5) * 2, vy: Math.random() * 2 + 1,
+      r: Math.random() * 5 + 4, rot: Math.random() * 6, vr: (Math.random() - .5) * .2, c: colors[(Math.random() * colors.length) | 0], shape: 'petal',
+    });
+    if (!animating) { animating = true; requestAnimationFrame(tick); }
+  }
+  function tick() {
+    cx.clearRect(0, 0, innerWidth, innerHeight);
+    parts.forEach((p) => {
+      p.vy += .32; p.vx *= .99; p.vy = Math.min(p.vy, 4.5 + p.r * .3);
+      p.x += p.vx + Math.sin(p.rot) * .6; p.y += p.vy; p.rot += p.vr;
+      cx.save(); cx.translate(p.x, p.y); cx.rotate(p.rot); cx.fillStyle = p.c;
+      if (p.shape === 'petal') { cx.beginPath(); cx.ellipse(0, 0, p.r, p.r * .55, 0, 0, Math.PI * 2); cx.fill(); }
+      else cx.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2);
+      cx.restore();
+    });
+    parts = parts.filter((p) => p.y < innerHeight + 40);
+    if (parts.length) requestAnimationFrame(tick);
+    else { animating = false; cx.clearRect(0, 0, innerWidth, innerHeight); }
+  }
+
+  // ---------- wiring ----------
+  $('durations').addEventListener('click', (e) => { const b = e.target.closest('.dur'); if (b) selectHours(+b.dataset.h); });
+  $('btn-start').onclick = start;
+  $('btn-stop').onclick = stop;
+  $('btn-restart').onclick = restart;
+  $('btn-reset').onclick = reset;
+  $('finish-close').onclick = () => {
+    $('finish').classList.remove('show');
+    lastFinishedDate = state.history.at(-1)?.date;
+  };
+
+  setInterval(() => {
+    if (S().status !== 'running') return;
+    if (remainingMs() <= 0) finish();
+    else render();
+  }, 200);
+
+  // resume after reload: if the countdown already ran out while the page was closed, finish now
+  if (S().status === 'running' && remainingMs() <= 0) finish(true);
+  render(); renderLaps(); renderCalendar();
+})();
+</script>
+</body>
+</html>
