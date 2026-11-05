@@ -102,7 +102,9 @@
   .day.today { border-color: var(--sun); }
   .day.sel { background: var(--tint); border-color: var(--accent); }
   .day.done { background: var(--tint-2); }
-  .flowers { font-size: clamp(14px, 4.5vw, 22px); line-height: 1.1; margin-top: 2px; }
+  .flowers { display: flex; align-items: center; gap: 1px; margin-top: 1px; font-size: 10px; font-weight: 700; color: var(--accent-d); line-height: 1; }
+  .flower { width: clamp(20px, 6vw, 28px); height: auto; image-rendering: pixelated; display: block; }
+  .flower.sm { display: inline-block; width: 1.4em; vertical-align: -.35em; }
   .flowers.pop { animation: bloom .6s ease-out; }
   @keyframes bloom { 0% { transform: scale(0) rotate(-90deg); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
   .cal-summary { text-align: center; color: var(--sub); font-size: 13px; margin-top: 12px; }
@@ -186,7 +188,7 @@
 <div class="finish" id="finish">
   <div class="finish-box">
     <div class="finish-text">FINISH!</div>
-    <div class="finish-sub" id="finish-sub">おつかれさまでした 🌸</div>
+    <div class="finish-sub" id="finish-sub">おつかれさまでした <img class="flower sm" src="flower.svg" alt=""></div>
     <button id="finish-close">とじる</button>
   </div>
 </div>
@@ -195,7 +197,8 @@
 <script>
 (() => {
   const STORE_KEY = 'countwatch.v1';
-  const FLOWERS = ['🌸', '🌷', '🌼', '🌻', '🌺', '💐'];
+  const FLOWER = '<img class="flower" src="flower.svg" alt="お花">';
+  const FLOWER_SM = '<img class="flower sm" src="flower.svg" alt="">';
   const $ = (id) => document.getElementById(id);
 
   // ---------- state ----------
@@ -299,7 +302,7 @@
     state.history.push({ id: s.id, date: ymd(new Date(endTs)), hours: s.hours, finishedAt: endTs, laps: s.laps });
     save(); render(); renderLaps(); renderCalendar();
     if (celebrate) {
-      $('finish-sub').textContent = `${s.hours}時間 完走！ おつかれさまでした 🌸`;
+      $('finish-sub').innerHTML = `${s.hours}時間 完走！ おつかれさまでした ${FLOWER_SM}`;
       $('finish').classList.add('show');
       confetti();
     }
@@ -411,15 +414,14 @@
       const list = map[key] || [];
       monthCount += list.length;
       list.forEach((h) => (monthMs += h.hours * 3600000));
-      const flowers = list.slice(0, 3).map((h) => FLOWERS[(h.hours - 1 + list.indexOf(h)) % FLOWERS.length]).join('')
-                    + (list.length > 3 ? '+' : '');
+      const flowers = FLOWER + (list.length > 1 ? `×${list.length}` : '');
       html += `<div class="day ${key === ymd(today) ? 'today' : ''} ${key === selDate ? 'sel' : ''} ${list.length ? 'done' : ''}" data-date="${key}">
                  <span>${d}</span>${list.length ? `<span class="flowers ${key === lastFinishedDate ? 'pop' : ''}">${flowers}</span>` : ''}
                </div>`;
     }
     $('cal-grid').innerHTML = html;
     $('cal-summary').innerHTML = monthCount
-      ? `今月は <b>${monthCount}回</b> 完走（合計 <b>${monthMs / 3600000}時間</b>）🌷`
+      ? `今月は <b>${monthCount}回</b> 完走（合計 <b>${monthMs / 3600000}時間</b>）${FLOWER_SM}`
       : 'カウントダウンを完走すると、その日にお花が咲きます 🌱';
     lastFinishedDate = null;
     renderDayDetail();
@@ -431,7 +433,7 @@
     let html = `<h2 class="section-title">${m}月${d}日 <small>${list.length ? `${list.length}回 完走` : ''}</small></h2>`;
     if (!list.length) html += '<div class="empty">この日の記録はありません</div>';
     list.forEach((h, n) => {
-      html += `<div class="session"><div class="session-head">${FLOWERS[(h.hours - 1 + n) % FLOWERS.length]} ${h.hours}時間コース
+      html += `<div class="session"><div class="session-head">${FLOWER_SM} ${h.hours}時間コース
                <small>${hm(h.finishedAt)} にFINISH・ラップ${h.laps.length}件</small></div>
                ${h.laps.map((l, i) => lapCard(l, i, h.id)).join('')}</div>`;
     });
