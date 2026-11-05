@@ -122,6 +122,14 @@
   .finish-text { font-size: clamp(56px, 18vw, 96px); font-weight: 900; letter-spacing: .04em; background: linear-gradient(90deg, #f38144, #ffd166, #7fd1b9, #8ec5ff, #c3a6ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .finish-sub { color: var(--sub); margin: 8px 0 20px; }
   .finish-box button { border: 0; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 800; padding: 12px 28px; border-radius: 999px; cursor: pointer; }
+  .modal { position: fixed; inset: 0; z-index: 45; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(10, 8, 14, .7); }
+  .modal.show { display: flex; }
+  .modal-box { background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; padding: 24px 20px 20px; width: 100%; max-width: 320px; text-align: center; box-shadow: var(--shadow); animation: pop .25s ease-out; }
+  .modal-box p { margin: 0 0 20px; line-height: 1.6; }
+  .modal-btns { display: flex; gap: 8px; }
+  .modal-btns button { flex: 1; border: 0; border-radius: 12px; padding: 12px 0; font: inherit; font-weight: 800; cursor: pointer; }
+  #confirm-no { background: var(--surface); color: var(--sub); }
+  #confirm-yes { background: var(--accent); color: var(--on-accent); }
   @keyframes pop { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 </style>
 </head>
@@ -190,6 +198,15 @@
     <div class="finish-text">FINISH!</div>
     <div class="finish-sub" id="finish-sub">おつかれさまでした <img class="flower sm" src="flower.svg" alt=""></div>
     <button id="finish-close">とじる</button>
+  </div>
+</div>
+<div class="modal" id="confirm" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <p>カウントをリセットしますか？<br><small style="color:var(--sub)">ラップも消えます</small></p>
+    <div class="modal-btns">
+      <button id="confirm-no">キャンセル</button>
+      <button id="confirm-yes">RESET ALL</button>
+    </div>
   </div>
 </div>
 <canvas id="confetti"></canvas>
@@ -278,7 +295,13 @@
   function reset() {
     const s = S();
     if (s.status === 'idle') return;
-    if (s.status !== 'finished' && !confirm('カウントをリセットしますか？（ラップも消えます）')) return;
+    // in-page dialog: native confirm() is blocked in some browsers / embedded views
+    if (s.status !== 'finished') { $('confirm').classList.add('show'); return; }
+    resetAll();
+  }
+  function resetAll() {
+    $('confirm').classList.remove('show');
+    const s = S();
     state.session = { ...defaultState().session, hours: s.hours };
     save(); render(); renderLaps();
   }
@@ -504,6 +527,9 @@
   $('btn-stop').onclick = stop;
   $('btn-restart').onclick = restart;
   $('btn-reset').onclick = reset;
+  $('confirm-yes').onclick = resetAll;
+  $('confirm-no').onclick = () => $('confirm').classList.remove('show');
+  $('confirm').onclick = (e) => { if (e.target.id === 'confirm') $('confirm').classList.remove('show'); };
   $('btn-reset-lap').onclick = resetLap;
   $('finish-close').onclick = () => {
     $('finish').classList.remove('show');
