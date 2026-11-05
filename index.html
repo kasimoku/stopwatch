@@ -71,7 +71,9 @@
   .btn.start { background: var(--mint); }
   .btn.stop { background: var(--accent); }
   .btn.restart { background: var(--sky); }
-  .reset { display: block; margin: 12px auto 0; background: none; border: 0; color: var(--sub); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; }
+  .resets { display: flex; gap: 8px; margin-top: 8px; }
+  .reset { flex: 1; background: transparent; border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 0; color: var(--sub); font: inherit; font-size: 13px; font-weight: 700; letter-spacing: .06em; cursor: pointer; transition: transform .1s, opacity .2s; }
+  .reset:active:not(:disabled) { transform: scale(.96); }
   .reset:disabled { opacity: .3; cursor: not-allowed; }
 
   /* laps */
@@ -154,7 +156,10 @@
         <button class="btn stop" id="btn-stop">STOP</button>
         <button class="btn restart" id="btn-restart">RESTART</button>
       </div>
-      <button class="reset" id="btn-reset">リセット</button>
+      <div class="resets">
+        <button class="reset" id="btn-reset-lap">RESET LAP</button>
+        <button class="reset" id="btn-reset">RESET ALL</button>
+      </div>
     </div>
 
     <div class="card">
@@ -274,6 +279,13 @@
     state.session = { ...defaultState().session, hours: s.hours };
     save(); render(); renderLaps();
   }
+  // restart the lap in progress from 0; the countdown goes back to where that lap began
+  function resetLap() {
+    const s = S();
+    if (s.status !== 'running') return;
+    s.segStart = Date.now();
+    save(); render(); renderLaps();
+  }
   function selectHours(h) {
     if (S().status !== 'idle') return;
     S().hours = h; save(); render();
@@ -312,7 +324,7 @@
     $('btn-stop').disabled = s.status !== 'running';
     $('btn-restart').disabled = s.status !== 'paused';
     $('btn-reset').disabled = s.status === 'idle';
-    $('btn-reset').textContent = s.status === 'finished' ? 'もう一度はじめる' : 'リセット';
+    $('btn-reset-lap').disabled = s.status !== 'running';
 
     $('status').textContent = {
       idle: '時間を選んでスタート',
@@ -490,6 +502,7 @@
   $('btn-stop').onclick = stop;
   $('btn-restart').onclick = restart;
   $('btn-reset').onclick = reset;
+  $('btn-reset-lap').onclick = resetLap;
   $('finish-close').onclick = () => {
     $('finish').classList.remove('show');
     lastFinishedDate = state.history.at(-1)?.date;
